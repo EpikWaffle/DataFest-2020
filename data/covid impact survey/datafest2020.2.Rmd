@@ -1,0 +1,96 @@
+---
+title: "Untitled"
+author: "Alex Eisert"
+date: "5/24/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(readr)
+library(dplyr)
+library(DescTools)
+```
+
+```{r}
+urlfile <- "https://raw.githubusercontent.com/jlin99/DataFest-2020/master/data/covid%20impact%20survey/week1.csv"
+
+urlfile2 <- "https://raw.githubusercontent.com/jlin99/DataFest-2020/master/data/covid%20impact%20survey/week2.csv"
+
+wk1 <- read_csv(url(urlfile))
+
+wk2 <- read_csv(url(urlfile2))
+
+combo <- bind_rows(wk1, wk2)
+
+column.numeric <- function(column){
+  return(parse_number(column))
+}
+
+##8-95, 97, 99-122, 124-152, 154-155, 157, 163-173 need to be converted to numbers
+
+pt1 <- as.data.frame(lapply(wk1[c(8:95)], column.numeric))
+
+pt2 <- as.data.frame(lapply(wk1[c(97:97)], column.numeric))
+
+pt3 <- as.data.frame(lapply(wk1[c(99:122)], column.numeric))
+
+pt4 <- as.data.frame(lapply(wk1[c(124:152)], column.numeric))
+
+pt5 <- as.data.frame(lapply(wk1[c(154:155)], column.numeric))
+
+pt6 <- as.data.frame(lapply(wk1[c(157:157)], column.numeric))
+
+pt7 <- as.data.frame(lapply(wk1[c(163:169)], column.numeric))
+
+pt8 <- as.data.frame(lapply(wk1[c(171:173)], column.numeric))
+
+full <- bind_cols(pt1, pt2)
+full <- bind_cols(full, pt3)
+full <- bind_cols(full, pt4)
+full <- bind_cols(full, pt5)
+full <- bind_cols(full, pt6)
+full <- bind_cols(full, pt7)
+full <- bind_cols(full, pt8)
+
+full <- as.data.frame(lapply(full[c(1:155)], column.clean))
+
+wk1.new <- bind_cols(wk1[c(1:7)], full)
+wk1.new <- bind_cols(wk1.new, wk1[96])
+wk1.new <- bind_cols(wk1.new, wk1[98])
+wk1.new <- bind_cols(wk1.new, wk1[123])
+wk1.new <- bind_cols(wk1.new, wk1[153])
+wk1.new <- bind_cols(wk1.new, wk1[c(158:162)])
+
+wk1.new$HHINCOME <- ifelse(wk1.new$HHINCOME=="Under $10,000", 1,
+                           ifelse(wk1.new$HHINCOME=="$10,000 to under $20,000", 2,
+                           ifelse(wk1.new$HHINCOME=="$20,000 to under $30,000", 3,
+                           ifelse(wk1.new$HHINCOME=="$30,000 to under $40,000", 4,
+                           ifelse(wk1.new$HHINCOME=="$40,000 to under $50,000", 5,
+                           ifelse(wk1.new$HHINCOME=="$50,000 to under $75,000", 6,
+                           ifelse(wk1.new$HHINCOME=="$75,000 to under $100,000", 7,
+                           ifelse(wk1.new$HHINCOME=="$100,000 to under $150,000", 8,
+                           ifelse(wk1.new$HHINCOME=="$150,000 or more", 9, NA)))))))))
+
+column.clean <- function(column){
+  column.new <- ifelse(column>70, NA, column)
+  return(column.new)
+}
+
+write.csv(wk1.new, file = "wk1.new.csv")
+
+wk1.new$NeighborChange <- wk1.new$SOC2B - wk1.new$SOC2A
+
+##If NeighborChange is positive, that means you're talking to your neighbors more. Negative means you're talking to your neighbors less.
+
+fit.NeighborChange <- lm(NeighborChange ~ SOC1 + PHYS8 + P_DENSE + P_GEO + PHYS3H, data = wk1.new)
+summary(fit.NeighborChange)
+
+max(wk1.new$SOC5A)
+
+filter(wk1.new, wk1.new$SOC5A==9)
+
+wk1.new$MHscore <- wk1.new$SOC5A + wk1.new$SOC5B + wk1.new$SOC5C + wk1.new$SOC5D + wk1.new$SOC5E
+```
+
