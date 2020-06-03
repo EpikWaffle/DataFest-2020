@@ -1,0 +1,88 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(readr)
+library(dplyr)
+library(DescTools)
+library(stringr)
+library(tidytext)
+library(rvest)
+library(ggplot2)
+library(lubridate)
+```
+
+```{r}
+rsrch <- read_csv("metadata.csv")
+
+rsrch$publish_time <- as.Date(rsrch$publish_time)
+
+rsrch <- rsrch %>% filter(!is.na(rsrch$publish_time))
+
+rsrch$publish_time <- YearMonth(rsrch$publish_time)
+
+rsrch <- rsrch %>% arrange(publish_time)
+
+rsrch_mental <- rsrch %>% filter(grepl(paste(" ", "mental", " ", sep = ""), rsrch$abstract, ignore.case = TRUE) | 
+                  grepl(paste("^", "mental", " ", sep = ""), rsrch$abstract, ignore.case = TRUE) |
+                  grepl(paste(" ", "mental", "$", sep = ""), rsrch$abstract, ignore.case = TRUE))
+
+rsrch_mental <- rsrch_mental %>% arrange(publish_time)
+
+date.count <- function(date){
+  guh <- rsrch_mental %>% filter(rsrch_mental$publish_time==date)
+  return(nrow(guh))
+}
+
+date.count2 <- function(date){
+  guh <- rsrch %>% filter(rsrch$publish_time==date)
+  return(nrow(guh))
+}
+
+df <- as.data.frame(lapply(unique(rsrch_mental$publish_time), date.count))
+
+colnames(df) <- unique(rsrch_mental$publish_time)
+
+df2 <- as.data.frame(lapply(unique(rsrch$publish_time), date.count2))
+
+colnames(df2) <- unique(rsrch$publish_time)
+
+df_t <- as.data.frame(t(df))
+
+df_t$V2 <- unique(rsrch_mental$publish_time)
+
+df_t <- df_t[-c(98),]
+
+df_t2 <- as.data.frame(t(df2))
+
+df_t2$V2 <- unique(rsrch$publish_time)
+
+df_t2 <- df_t2[-c(579:586),]
+
+df_full <- full_join(df_t, df_t2, by = "V2")
+
+df_full$V1.x <- ifelse(is.na(df_full$V1.x), 0, df_full$V1.x)
+
+df_full$ratio <- (df_full$V1.x/df_full$V1.y)*100
+
+df_full <- df_full[order(df_full$V2),]
+
+df_full$V2 <- as.Date(paste0(as.character(df_full$V2), '01'), format='%Y%m%d')
+
+df_full <- df_full[c(370:578),]
+
+df_full
+
+ggplot(data = df_full, aes(x=V2, y=ratio)) + ggtitle("Percentage of Coronavirus Articles That Mention 'Mental' in Their Abstract") + geom_line(color = "blue3", size = 1) + geom_point(color = "black", size = 2) + xlab("Publication Date") + ylab("Percentage") + theme(axis.title.x = element_text(size=18), axis.title.y = element_text(size=18), axis.text = element_text(size=14)) + theme_bw() + scale_y_continuous(expand = c(0,.00005)) + scale_x_date(expand = c(.005,0))
+
+ggsave("datafest1.jpg", width = 10, height = 5)
+
+
+abstr_words <- rsrch %>% unnest_tokens(count, abstract) %>% count(count, sort = TRUE)
+abstr_words %>% filter(abstr_words$count=="mental")
+```
+

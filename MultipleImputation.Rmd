@@ -1,0 +1,227 @@
+---
+title: "Untitled"
+author: "Alex Eisert"
+date: "5/26/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(readr)
+library(dplyr)
+library(MASS)
+library(mice)
+library(devtools)
+library(glmmplus)
+library(stringr)
+library(lmtest)
+options(max.print=999999)
+```
+
+```{r}
+urlfile1 <- "https://raw.githubusercontent.com/jlin99/DataFest-2020/master/data/covid%20impact%20survey/wk1.new.csv"
+
+data <- read_csv(url(urlfile1))
+
+
+data$NeighborChange <- ifelse(is.na(data$SOC2B) | is.na(data$SOC2A), NA, data$SOC2B - data$SOC2A)
+
+fit.NeighborChange <- lm(NeighborChange ~ SOC1 + PHYS8 + P_DENSE + P_GEO + PHYS3H, data = data)
+
+fit <- lm(P_DENSE ~ P_GEO, data = data)
+
+data$MHscore <- ifelse(is.na(data$SOC5A) | is.na(data$SOC5B) | is.na(data$SOC5C) | is.na(data$SOC5D) | is.na(data$SOC5E), NA, data$SOC5A + data$SOC5B + data$SOC5C + data$SOC5D + data$SOC5E)
+
+data <- data[c(8:174)]
+
+data
+
+df <- as.data.frame(lapply(data, na.count))
+
+data2 <- bind_cols(data[c(32:53)], data[c(78:88)])
+data2 <- bind_cols(data2, data[c(107:113)])
+
+data2
+
+na.count <- function(column){
+  return(sum(is.na(column)))
+}
+
+df 
+
+##P_GEO, ECON4, RACETH, MAIL50, RACE1_BANNER, ECON2, PHYS11_TEMP
+
+is.allthesame <- function(column){
+  return(length(unique(column))==2)
+}
+
+unique(data$P_GEO)
+
+data <- data %>% filter(is.allthesame==FALSE)
+
+df <- as.data.frame(lapply(data, is.allthesame))
+
+df
+       
+df.t <- as.data.frame(t(df))
+df.t$Vars <- colnames(data)
+
+df.t <- df.t %>% filter(V1==FALSE)
+df.t$Vars
+
+empty.string1 <- ""
+
+for (i in 1:125){
+  empty.string1 <- paste(empty.string1, df.t$Vars[i], sep = " + ", collapse = NULL)
+}
+
+empty.string2 <- ""
+
+for(i in 1:125){
+  empty.string2 <- paste(empty.string2, df.t$Vars[i], sep = ",", collapse = NULL)
+}
+
+empty.string5 <- ""
+
+for(i in 1:40){
+  empty.string5 <- paste(empty.string5, colnames(data2)[i], sep = ",", collapse = NULL)
+}
+
+empty.string5
+
+empty.string1
+
+colnames(data2)[1]
+
+data
+
+empty.string2
+```
+
+```{r}
+##Full model
+
+fit.full <- lm(MHscore ~ P_GEO + SOC1 + SOC2A + SOC2B + SOC3A + SOC3B + SOC4A + SOC4B + PHYS8 + PHYS1A + PHYS1B + PHYS1C + PHYS1D + PHYS1E + PHYS1F + PHYS1G + PHYS1H + PHYS1I + PHYS1J + PHYS1K + PHYS1L + PHYS1M + PHYS1N + PHYS1O + PHYS1P + PHYS1Q + PHYS10A + PHYS10B + PHYS10C + PHYS10D + PHYS10E + ECON8A + ECON8B + ECON8C + ECON8D + ECON8E + ECON8F + ECON8G + ECON8H + ECON8I + ECON8J + ECON8K + ECON8L + ECON8M + ECON8N + ECON8O + ECON8P + ECON8Q + ECON8R + ECON8S + ECON1 + ECON4A + ECON4B + ECON6A + ECON6B + ECON6C + ECON6D + ECON6E + ECON6F + ECON6G + ECON6H + ECON6I + ECON6J + ECON6K + ECON6L + ECON5A_A + ECON5A_B + PHYS11 + PHYS9A + PHYS9B + PHYS9C + PHYS9D + PHYS9E + PHYS9F + PHYS9G + PHYS9H + PHYS3A + PHYS3B + PHYS3C + PHYS3D + PHYS3E + PHYS3F + PHYS3G + PHYS3H + PHYS3I + PHYS3J + PHYS3K + PHYS3L + PHYS3M + PHYS4 + PHYS5 + PHYS6 + AGE4 + AGE7 + GENDER + RACETH + RACE_R2 + EDUCATION + EDUC4 + HHSIZE1 + REGION4 + REGION9 + P_DENSE + MAIL50 + RACE1_BANNER + INC_BANNER + AGE_BANNER + HH_BANNER + ECON2 + ECON3 + PHYS11_TEMP + HHINCOME + HH01S + HH25S + HH612S + HH1317S + HH18OVS + NeighborChange, data = data)
+
+##Removed ECON4 b/c it had too many NAs. Also removed multicollinear variables.
+
+data
+
+colnames(data2)
+
+mice.raw <- data %>% dplyr::select(SOC1,SOC2A,SOC2B,SOC3A,SOC3B,SOC4A,SOC4B,PHYS8,PHYS1A,PHYS1B,PHYS1C,PHYS1D,PHYS1E,PHYS1F,PHYS1G,PHYS1H,PHYS1I,PHYS1J,PHYS1K,PHYS1L,PHYS1M,PHYS1N,PHYS1O,PHYS1P,PHYS1Q,SOC5A,SOC5B,SOC5C,SOC5D,SOC5E,PHYS10A,PHYS10B,PHYS10C,PHYS10D,PHYS10E,ECON8A,ECON8B,ECON8C,ECON8D,ECON8E,ECON8F,ECON8G,ECON8H,ECON8I,ECON8J,ECON8K,ECON8L,ECON8M,ECON8N,ECON8O,ECON8P,ECON8Q,ECON8R,ECON8S,ECON1,ECON4A,ECON4B,ECON6A,ECON6B,ECON6C,ECON6D,ECON6E,ECON6F,ECON6G,ECON6H,ECON6I,ECON6J,ECON6K,ECON6L,ECON5A_A,ECON5A_B,PHYS11,PHYS9A,PHYS9B,PHYS9C,PHYS9D,PHYS9E,PHYS9F,PHYS9G,PHYS9H,PHYS3A,PHYS3B,PHYS3C,PHYS3D,PHYS3E,PHYS3F,PHYS3G,PHYS3H,PHYS3I,PHYS3J,PHYS3K,PHYS3L,PHYS3M,PHYS4,PHYS5,PHYS6,AGE7,GENDER,RACE_R2,EDUCATION,EDUC4,HHSIZE1,REGION9,P_DENSE,INC_BANNER,HH_BANNER,ECON3,HHINCOME,HH01S,HH25S,HH612S,HH1317S,PHYS2_1,PHYS2_2,PHYS2_3,PHYS2_4,PHYS2_5,PHYS2_6,PHYS2_7,PHYS2_8,PHYS2_9,PHYS2_10,PHYS2_11,PHYS2_12,PHYS2_13,PHYS2_14,PHYS2_15,PHYS2_16,PHYS2_17,PHYS2_18,PHYS2_19,PHYS2_DK,PHYS2_SKP,PHYS2_REF,ECON7_1,ECON7_2,ECON7_3,ECON7_4,ECON7_5,ECON7_6,ECON7_7,ECON7_8,ECON7_DK,ECON7_SKP,ECON7_REF,PHYS7_1,PHYS7_2,PHYS7_3,PHYS7_4,PHYS7_DK,PHYS7_SKP,PHYS7_REF)
+
+as.data.frame(lapply(mice.raw, is.numeric))
+
+p_missing <- unlist(lapply(mice.raw, function(x) sum(is.na(x))))/nrow(mice.raw)
+p_missing
+sort(p_missing, decreasing = TRUE)
+
+imp <- mice(mice.raw, maxit=0)
+
+meth = imp$method
+
+predM = imp$predictorMatrix
+
+poly <- c("P_GEO")
+
+meth[poly] = "polr"
+
+imp2 <- mice(mice.raw, maxit = 5, 
+             predictorMatrix = predM, 
+             method = meth, print =  FALSE)
+
+imp_long <- mice::complete(imp2, action="long", include = TRUE)
+
+imp_long$MHscore <- imp_long$SOC5A + imp_long$SOC5B + imp_long$SOC5C + imp_long$SOC5D + imp_long$SOC5E
+
+imp_long_mids <- as.mids(imp_long)
+
+densityplot(imp_long_mids, ~MHscore)
+
+colnames(imp_long)
+
+empty.string3 <- ""
+
+for(i in 1:155){
+  empty.string3 <- paste(empty.string3, colnames(imp_long[i]), sep = " + ", collapse = NULL)
+}
+
+empty.string3
+
+fitimp <- with(imp_long_mids,
+               lm(MHscore ~ SOC1 + SOC2A + SOC2B + SOC3A + SOC3B + SOC4A + SOC4B + PHYS8 + PHYS1A + PHYS1B + PHYS1C + PHYS1D + PHYS1E + PHYS1F + PHYS1G + PHYS1H + PHYS1I + PHYS1J + PHYS1K + PHYS1L + PHYS1M + PHYS1N + PHYS1O + PHYS1P + PHYS1Q + SOC5A + SOC5B + SOC5C + SOC5D + SOC5E + PHYS10A + PHYS10B + PHYS10C + PHYS10D + PHYS10E + ECON8A + ECON8B + ECON8C + ECON8D + ECON8E + ECON8F + ECON8G + ECON8H + ECON8I + ECON8J + ECON8K + ECON8L + ECON8M + ECON8N + ECON8O + ECON8P + ECON8Q + ECON8R + ECON8S + ECON1 + ECON4A + ECON4B + ECON6A + ECON6B + ECON6C + ECON6D + ECON6E + ECON6F + ECON6G + ECON6H + ECON6I + ECON6J + ECON6K + ECON6L + ECON5A_A + ECON5A_B + PHYS11 + PHYS9A + PHYS9B + PHYS9C + PHYS9D + PHYS9E + PHYS9F + PHYS9G + PHYS9H + PHYS3A + PHYS3B + PHYS3C + PHYS3D + PHYS3E + PHYS3F + PHYS3G + PHYS3H + PHYS3I + PHYS3J + PHYS3K + PHYS3L + PHYS3M + PHYS4 + PHYS5 + PHYS6 + AGE7 + GENDER + RACE_R2 + EDUCATION + EDUC4 + HHSIZE1 + REGION9 + P_DENSE + INC_BANNER + HH_BANNER + ECON3 + HHINCOME + HH01S + HH25S + HH612S + HH1317S))
+
+summary(pool(fitimp))
+
+scope <- list(upper = ~ SOC1 + SOC2A + SOC2B + SOC3A + SOC3B + SOC4A + SOC4B + PHYS8 + PHYS1A + PHYS1B + PHYS1C + PHYS1D + PHYS1E + PHYS1F + PHYS1G + PHYS1H + PHYS1I + PHYS1J + PHYS1K + PHYS1L + PHYS1M + PHYS1N + PHYS1O + PHYS1P + PHYS1Q + PHYS10A + PHYS10B + PHYS10C + PHYS10D + PHYS10E + ECON8A + ECON8B + ECON8C + ECON8D + ECON8E + ECON8F + ECON8G + ECON8H + ECON8I + ECON8J + ECON8K + ECON8L + ECON8M + ECON8N + ECON8O + ECON8P + ECON8Q + ECON8R + ECON8S + ECON1 + ECON4A + ECON4B + ECON6A + ECON6B + ECON6C + ECON6D + ECON6E + ECON6F + ECON6G + ECON6H + ECON6I + ECON6J + ECON6K + ECON6L + ECON5A_A + ECON5A_B + PHYS11 + PHYS9A + PHYS9B + PHYS9C + PHYS9D + PHYS9E + PHYS9F + PHYS9G + PHYS9H + PHYS3A + PHYS3B + PHYS3C + PHYS3D + PHYS3E + PHYS3F + PHYS3G + PHYS3H + PHYS3I + PHYS3J + PHYS3K + PHYS3L + PHYS3M + PHYS4 + PHYS5 + PHYS6 + AGE7 + GENDER + RACE_R2 + EDUCATION + EDUC4 + HHSIZE1 + REGION9 + P_DENSE + INC_BANNER + HH_BANNER + ECON3 + HHINCOME + HH01S + HH25S + HH612S + HH1317S + PHYS2_1 + PHYS2_2 + PHYS2_3 + PHYS2_4 + PHYS2_5 + PHYS2_6 + PHYS2_7 + PHYS2_8 + PHYS2_9 + PHYS2_10 + PHYS2_11 + PHYS2_12 + PHYS2_13 + PHYS2_14 + PHYS2_15 + PHYS2_16 + PHYS2_17 + PHYS2_18 + PHYS2_19 + PHYS2_DK + PHYS2_SKP + PHYS2_REF + ECON7_1 + ECON7_2 + ECON7_3 + ECON7_4 + ECON7_5 + ECON7_6 + ECON7_7 + ECON7_8 + ECON7_DK + ECON7_SKP + ECON7_REF + PHYS7_1 + PHYS7_2 + PHYS7_3 + PHYS7_4 + PHYS7_DK + PHYS7_SKP + PHYS7_REF, 
+              lower = ~1)
+
+expr <- expression(f1 <- lm(MHscore ~ 1),
+                   f2 <- step(f1, scope = scope))
+
+fit <- with(imp_long_mids, expr)
+
+summary(fit)
+
+formulas <- lapply(fit$analyses, formula)
+terms <- lapply(formulas, terms)
+votes <- unlist(lapply(terms, labels))
+table(votes)
+firstRnd <- as.data.frame(table(votes))
+firstRnd <- firstRnd %>% filter(Freq>2)
+firstRnd
+
+empty.string4 <- ""
+
+for(i in 1:66){
+  empty.string4 <- paste(empty.string4, firstRnd$votes[i], sep = " + ", collapse = NULL)
+}
+
+empty.string4
+
+eliminate <- function(var){
+  fit.with <- with(imp_long_mids, lm(as.formula("MHscore ~ AGE7 + ECON4B + ECON5A_A + ECON6H + ECON8K + ECON8P + ECON8R + GENDER + HH01S + HHSIZE1 + P_DENSE + PHYS10E + PHYS1E + PHYS1H + PHYS1I + PHYS1L + PHYS1O + PHYS2_12 + PHYS2_18 + PHYS2_4 + PHYS2_8 + PHYS2_DK + PHYS3F + PHYS3H + PHYS4 + PHYS7_2 + PHYS7_3 + PHYS7_SKP + PHYS8 + RACE_R2 + SOC2A")))
+  fit.without <- with(imp_long_mids, lm(as.formula(str_remove("MHscore ~ AGE7 + ECON4B + ECON5A_A + ECON6H + ECON8K + ECON8P + ECON8R + GENDER + HH01S + HHSIZE1 + P_DENSE + PHYS10E + PHYS1E + PHYS1H + PHYS1I + PHYS1L + PHYS1O + PHYS2_12 + PHYS2_18 + PHYS2_4 + PHYS2_8 + PHYS2_DK + PHYS3F + PHYS3H + PHYS4 + PHYS7_2 + PHYS7_3 + PHYS7_SKP + PHYS8 + RACE_R2 + SOC2A", var))))
+  w <- D1(fit.with, fit.without)
+  w <- as.data.frame(w$result)
+  return(paste(w$`P(>F)`, var))
+}
+
+d <- c("AGE7 \\+ "," \\+ ECON4B"," \\+ ECON5A_A"," \\+ ECON6H"," \\+ ECON8K"," \\+ ECON8P"," \\+ ECON8R"," \\+ GENDER"," \\+ HH01S"," \\+ HHSIZE1"," \\+ P_DENSE"," \\+ PHYS10E"," \\+ PHYS1E"," \\+ PHYS1H"," \\+ PHYS1I"," \\+ PHYS1L"," \\+ PHYS1O"," \\+ PHYS2_12"," \\+ PHYS2_18"," \\+ PHYS2_4"," \\+ PHYS2_8"," \\+ PHYS2_DK"," \\+ PHYS3F"," \\+ PHYS3H"," \\+ PHYS4"," \\+ PHYS7_2"," \\+ PHYS7_3"," \\+ PHYS7_SKP"," \\+ PHYS8"," \\+ RACE_R2"," \\+ SOC2A")
+
+ruh <- t(as.data.frame(lapply(d, eliminate)))
+ruh <- as.data.frame(ruh)
+ruh
+ruh$V2 <- parse_number(as.character(ruh$V1))
+filter(ruh, ruh$V2==max(ruh$V2))
+##Removed: phys3a, phys1m, econ8i, phys9c, phys9d, phys2_2, soc3a, phys_7ref, econ8s, soc3b, phys1d, phys3l, phys6, econ6a, econ1, phys9a, soc2b, phys2_14, econ8d, econ6d, phys1f, econ6i, econ6j, phys1k, econ7_8, econ7_5, phys3i, econ6c, econ6b, econ8a, phys2_19, econ5a_b, phys11
+
+fit.final <- with(imp_long_mids, lm(MHscore ~ AGE7 + ECON4B + ECON5A_A + ECON6H + ECON8K + ECON8P + ECON8R + GENDER + HH01S + HHSIZE1 + P_DENSE + PHYS10E + PHYS1E + PHYS1H + PHYS1I + PHYS1L + PHYS1O + PHYS2_12 + PHYS2_18 + PHYS2_4 + PHYS2_8 + PHYS2_DK + PHYS3F + PHYS3H + PHYS4 + PHYS7_2 + PHYS7_3 + PHYS7_SKP + PHYS8 + RACE_R2 + SOC2A))
+
+summary(pool(fit.final))
+
+pool.r.squared(fit.final)
+
+guh <- data %>% filter(!is.na(SOC1) & !is.na(SOC2A) & !is.na(MHscore))
+
+fit.reduced <- BackwardEliminate(MHscore ~ SOC1 + SOC2A + SOC2B + SOC3A + SOC3B + SOC4A + SOC4B + PHYS8 + PHYS1A + PHYS1B + PHYS1C + PHYS1D + PHYS1E + PHYS1F + PHYS1G + PHYS1H + PHYS1I + PHYS1J + PHYS1K + PHYS1L + PHYS1M + PHYS1N + PHYS1O + PHYS1P + PHYS1Q + PHYS10A + PHYS10B + PHYS10C + PHYS10D + PHYS10E + ECON8A + ECON8B + ECON8C + ECON8D + ECON8E + ECON8F + ECON8G + ECON8H + ECON8I + ECON8J + ECON8K + ECON8L + ECON8M + ECON8N + ECON8O + ECON8P + ECON8Q + ECON8R + ECON8S + ECON1 + ECON4A + ECON4B + ECON6A + ECON6B + ECON6C + ECON6D + ECON6E + ECON6F + ECON6G + ECON6H + ECON6I + ECON6J + ECON6K + ECON6L + ECON5A_A + ECON5A_B + PHYS11 + PHYS9A + PHYS9B + PHYS9C + PHYS9D + PHYS9E + PHYS9F + PHYS9G + PHYS9H + PHYS3A + PHYS3B + PHYS3C + PHYS3D + PHYS3E + PHYS3F + PHYS3G + PHYS3H + PHYS3I + PHYS3J + PHYS3K + PHYS3L + PHYS3M + PHYS4 + PHYS5 + PHYS6 + AGE7 + GENDER + RACE_R2 + EDUCATION + EDUC4 + HHSIZE1 + REGION9 + P_DENSE + INC_BANNER + HH_BANNER + ECON3 + HHINCOME + HH01S + HH25S + HH612S + HH1317S, data = imp_long_mids)
+
+summary(fit.full)
+
+data$PHYS11_TEMP <- parse_number(data$PHYS11_TEMP)
+data$PHYS11_TEMP <- ifelse(data$PHYS11_TEMP>100, NA, data$PHYS11_TEMP)
+
+data$ECON2 <- as.numeric(data$ECON2)
+
+data$ECON3 <- as.numeric(data$ECON3)
+
+step.model <- stepAIC(fit.full, direction = "backward", trace = FALSE)
+
+##Only 611 observations have no missing data. Do we want to focus on these, or fill in the missing values with means or modes? The MLR model does not operate on an observation if it has a missing value for any variable. In the stepwise process, whenever we remove a variable, we are given access to more "complete" observations, which confuses the process; it intends to operate on the same number of observations as the full model.
+
+write.csv(imp_long, file = "imp_long_new.csv")
+
+data
+```
